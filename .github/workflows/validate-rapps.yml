@@ -60,10 +60,16 @@ jobs:
         make
     - name: Pack CAB
       run: |
+        mkdir output
         cd clean_pack
-        ../lcab/lcab -r . ../rappmgr2.cab
+        ../lcab/lcab -r . ../output/rappmgr2.cab
     - name: 'Upload artifact'
       uses: actions/upload-artifact@v4
       with:
         name: rappmgr2.cab
-        path: rappmgr2.cab
+        path: output/rappmgr2.cab
+    - name: Deploy
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./output
