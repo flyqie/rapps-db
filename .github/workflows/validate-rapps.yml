@@ -8,6 +8,7 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -33,3 +34,36 @@ jobs:
     - name: Validate RAPPS entries
       run: |
         python3 .github/validate-rapps.py
+    - name: Create Clean Pack Dir
+      run: |
+        mkdir -p clean_pack
+        rsync -av --exclude='.*' --exclude='README.md' --exclude='CONTRIBUTORS' ./ ./clean_pack
+        find ./clean_pack -type f -name "*.txt" | while read -r f; do
+          type=$(file -b "$f")
+          if ! echo "$type" | grep -q "UTF-16"; then
+            echo "CONVERT: $f ($type)"
+            printf '\xFF\xFE' > "$f.tmp"
+            iconv -f utf-8 -t utf-16le "$f" >> "$f.tmp" 2>/dev/null || {
+              echo "FAILED: $f"
+              rm -f "$f.tmp"
+              exit 1
+            }
+            mv "$f.tmp" "$f"
+          fi
+        done
+    - name: Install lcab
+      run: |
+        git clone https://salsa.debian.org/debian/lcab.git
+        cd lcab
+        autoreconf -fi
+        ./configure
+        make
+    - name: Pack CAB
+      run: |
+        cd clean_pack
+        ../lcab/lcab -r . ../rappmgr2.cab
+    - name: 'Upload artifact'
+      uses: actions/upload-artifact@v4
+      with:
+        name: rappmgr2.cab
+        path: rappmgr2.cab
